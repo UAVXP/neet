@@ -3,7 +3,24 @@ neet = {}
 if SERVER then
 util.AddNetworkString( "neet:SyncMsgs" )
 util.AddNetworkString( "neet:AddNetworkString" )
+
+--[[
+--local n = (128 + 1) / 2
+local n = (3) + 1
+local frac, exp = math.frexp(n)
+local result = exp + math.ceil(frac - 1.5)
+result = math.ceil(math.log10(n) / math.log10(2))
+print(n, result)
+print("---- ", (math.pow(2, result) - 1))
+
+print(#math.IntToBin(126 / 2))
+print(math.ceil(tonumber( string.rep( "1", 3), 2 )/2) - 1)
+print(math.pow(2, 3))
+
+print()
+]]
 end
+
 
 --[[
 local table = table
@@ -22,13 +39,19 @@ NEET_SendPAS = 4
 NEET_SendPVS = 5
 NEET_SendToServer = 6
 
+NEET_BITS_Integer = 3 -- Not used
+NEET_BITS_Float = 0
+
 neet.Config = {}
 neet.Config.DelaySendingMessageIfNetNameNotExists = 3
+neet.Config.StringCompressedLengthBits = 16
 
+--[[
 hook.Remove( "NetworkIDValidated", "neet:NetworkIDValidated" )
 hook.Add( "NetworkIDValidated", "neet:NetworkIDValidated", function( name, steamID )
 	print("NetworkIDValidated", name, steamID)
 end )
+]]
 
 --[[
 	[1] = {
@@ -89,6 +112,112 @@ local function neetEstimateSize( params )
 	end
 end
 
+-- FIXME: This is really bad
+local function neetChooseNumberBits( number )
+	--[[
+		000
+		001
+		010
+		011
+		100
+		101
+		110
+		111
+	]]
+	if number >= -4 and number <= 3 then
+		return 3
+	end
+	if number >= -8 and number <= 7 then
+		return 4
+	end
+	if number >= -16 and number <= 15 then
+		return 5
+	end
+	if number >= -32 and number <= 31 then
+		return 6
+	end
+	if number >= -64 and number <= 63 then
+		return 7
+	end
+	if number >= -128 and number <= 127 then
+		return 8
+	end
+	if number >= -256 and number <= 255 then
+		return 9
+	end
+	if number >= -512 and number <= 511 then
+		return 10
+	end
+	if number >= -1024 and number <= 1023 then
+		return 11
+	end
+	if number >= -2048 and number <= 2047 then
+		return 12
+	end
+	if number >= -4096 and number <= 4095 then
+		return 13
+	end
+	if number >= -8192 and number <= 8191 then
+		return 14
+	end
+	if number >= -16384 and number <= 16383 then
+		return 15
+	end
+	if number >= -32768 and number <= 32767 then
+		return 16
+	end
+	if number >= -65536 and number <= 65535 then
+		return 17
+	end
+	if number >= -131072 and number <= 131071 then
+		return 18
+	end
+	if number >= -262144 and number <= 262143 then
+		return 19
+	end
+	if number >= -524288 and number <= 524287 then
+		return 20
+	end
+	if number >= -1048576 and number <= 1048575 then
+		return 21
+	end
+	if number >= -2097152 and number <= 2097151 then
+		return 22
+	end
+	if number >= -4194304 and number <= 4194303 then
+		return 23
+	end
+	if number >= -8388608 and number <= 8388607 then
+		return 24
+	end
+	if number >= -16777216 and number <= 16777215 then
+		return 25
+	end
+	if number >= -33554432 and number <= 33554431 then
+		return 26
+	end
+	if number >= -67108864 and number <= 67108863 then
+		return 27
+	end
+	if number >= -134217728 and number <= 134217727 then
+		return 28
+	end
+	if number >= -268435456 and number <= 268435455 then
+		return 29
+	end
+	if number >= -536870912 and number <= 536870911 then
+		return 30
+	end
+	if number >= -1073741824 and number <= 1073741823 then
+		return 31
+	end
+	if number >= -2147483648 and number <= 2147483647 then
+		return 32
+	end
+
+	return 32
+end
+
 local function neetStartInternal( messageName, params, neetparams )
 
 	local bufsize = neetEstimateSize( params )
@@ -98,9 +227,19 @@ local function neetStartInternal( messageName, params, neetparams )
 	for k,v in pairs( params ) do
 		local typeid = TypeID( v )
 		if typeid == TYPE_NUMBER then
-			-- FIXME: If WriteInt - use less/determined bits in future
 			-- FIXME: Autodetermine what is better to use: WriteInt( autobits ), WriteDouble or WriteFloat
-			net.WriteDouble( v )
+		--	net.WriteDouble( v )
+			local maximumBitsRequired = neetChooseNumberBits( v )
+			print("Choosing this number of bits (", maximumBitsRequired, ") to send", v)
+
+			if v == math.floor( v ) then -- This number is really integer
+				net.WriteInt( maximumBitsRequired, 7 )
+				net.WriteInt( v, maximumBitsRequired )
+			else
+				-- TODO: Do support for double
+				net.WriteInt( NEET_BITS_Float, 7 ) -- TODO: Define those explicitly
+				net.WriteFloat( v )
+			end
 		elseif typeid == TYPE_STRING then
 
 			-- TODO: Make sure the compressed string is smaller than the string itself
@@ -110,14 +249,18 @@ local function neetStartInternal( messageName, params, neetparams )
 			local towrite = util.Compress( v )
 			if towrite == nil then error("neet: Cannot compress the string", v) continue end
 			local writelen = #towrite
-			if writelen > #v then writelen = 0 end
+
+			-- Is string is smaller than compressed string + UInt string length in bytes
+			local isStringSmallerThanCompressedString = (#v < (writelen+(neet.Config.StringCompressedLengthBits/8)))
+			net.WriteBool( isStringSmallerThanCompressedString ) -- false if sending usual string
+
 		--	print("writelen:", writelen)
 		--	print("Compressed: ", towrite)
 		--	net.WriteString( towrite )
-			net.WriteUInt( writelen, 16 ) -- We need that anyway so we can determine should we uncompress it or not
-			if writelen == 0 then
+			if isStringSmallerThanCompressedString then
 				net.WriteString( v )
 			else
+				net.WriteUInt( writelen, neet.Config.StringCompressedLengthBits )
 				net.WriteData( towrite )
 			end
 		end
@@ -213,19 +356,26 @@ local function neetReceiveInternal( messageName )
 	for k,v in pairs( params ) do
 		local typeid = TypeID( v )
 		if typeid == TYPE_NUMBER then
-			table.insert( buf, net.ReadDouble() )
+		--	table.insert( buf, net.ReadDouble() )
+			local maximumBitsRequired = net.ReadInt( 7 )
+			if maximumBitsRequired >= NEET_BITS_Integer then
+				table.insert( buf, net.ReadInt( maximumBitsRequired ) )
+			elseif maximumBitsRequired == NEET_BITS_Float then
+				table.insert( buf, net.ReadFloat() )
+			end
 		elseif typeid == TYPE_STRING then
 		--	local predecomp = net.ReadString()
-			local readlen = net.ReadUInt( 16 )
 			local readstr = ""
-			if readlen == 0 then
+			local isStringSmallerThanCompressedString = net.ReadBool()
+			if isStringSmallerThanCompressedString then
 				readstr = net.ReadString()
 			else
+				local readlen = net.ReadUInt( neet.Config.StringCompressedLengthBits )
 			--	print("readlen", readlen)
 				local predecomp = net.ReadData( readlen )
 			--	print(predecomp)
-				local readstr = util.Decompress( predecomp )
-				print("Decompressed: ", readstr)
+				readstr = util.Decompress( predecomp )
+			--	print("Decompressed: ", readstr)
 				if readstr == "" then error("neet: Cannot decompress the string") end
 			end
 			table.insert( buf, readstr )
@@ -268,7 +418,7 @@ end
 -- neet
 if SERVER then
 concommand.Add( "send_msg", function( ply, cmd, args, str )
-	local tosend = {"I'm a man.", 43}
+	local tosend = {"I'm a man.", 43, 69.5}
 --	local nparams = { msg = {msgtype = NEET_Broadcast}, unreliable = false } -- TODO: Make common params into a separate neet-vars
 	local nparams = neet.ConstructParams( NEET_Broadcast )
 --	nparams = neet.ConstructParams( NEET_Send, player.GetAll()[1] )

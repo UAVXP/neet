@@ -1,4 +1,5 @@
-neet = {}
+--neet = {}
+module( "neet", package.seeall )
 
 if SERVER then
 util.AddNetworkString( "neet:SyncMsgs" )
@@ -31,20 +32,37 @@ table.insert = function( tbl, position, value )
 end
 ]]
 
--- FIXME: Split in future into SERVER and CLIENT
-NEET_Broadcast = 1
+if SERVER then NEET_Broadcast = 1 end
 NEET_Send = 2
-NEET_SendOmit = 3
-NEET_SendPAS = 4
-NEET_SendPVS = 5
-NEET_SendToServer = 6
+if SERVER then NEET_SendOmit = 3 end
+if SERVER then NEET_SendPAS = 4 end
+if SERVER then NEET_SendPVS = 5 end
+if CLIENT then NEET_SendToServer = 6 end
 
 NEET_BITS_Integer = 3 -- Not used
 NEET_BITS_Float = 0
 
 neet.Config = {}
-neet.Config.DelaySendingMessageIfNetNameNotExists = 3
-neet.Config.StringCompressedLengthBits = 16
+
+--neet.Config.DelaySendingMessageIfNetNameNotExists = 3
+local bits_ReplicatedArchived = FCVAR_NONE
+bits_ReplicatedArchived = bit.bor( bits_ReplicatedArchived, FCVAR_REPLICATED, FCVAR_ARCHIVE )
+neet.Config.SendDelay = CreateConVar( "neet_senddelay", 3, bits_ReplicatedArchived, "Delay of sending a message if network string doesn't exist", 1 )
+
+neet.Config.StringCompressedLengthBits = 16 -- Do not change! Amount of bits that are used to store the string length in netmessages
+
+function neet.ConstructParams( msgtype, extra, unreliable )
+	local params = {}
+	params.msg = {}
+	params.msg.msgtype = msgtype
+
+	if msgtype == NEET_Send and extra != nil then params.msg.extra = extra end
+	if unreliable != nil then params.unreliable = unreliable end
+
+	return params
+end
+
+neet.Broadcast = neet.ConstructParams( NEET_Broadcast )
 
 --[[
 hook.Remove( "NetworkIDValidated", "neet:NetworkIDValidated" )
@@ -320,7 +338,7 @@ function neet.Start( messageName, params, neetparams )
 
 		local tblNewNetMsg = {
 			NetName = messageName,
-			t_delay = netmsgNotAdded and neet.Config.DelaySendingMessageIfNetNameNotExists or 0,
+			t_delay = netmsgNotAdded and neet.Config.SendDelay:GetInt() or 0,
 			isfine = netmsgIsAlreadyExist, -- Means that the netname is going to be created, but the message itself not being sent for now
 			params = params,
 			neetparams = neetparams
@@ -402,17 +420,6 @@ if CLIENT then
 end
 end
 
-function neet.ConstructParams( msgtype, extra, unreliable )
-	local params = {}
-	params.msg = {}
-	params.msg.msgtype = msgtype
-
-	if msgtype == NEET_Send and extra != nil then params.msg.extra = extra end
-	if unreliable != nil then params.unreliable = unreliable end
-
-	return params
-end
-
 
 --------- Tests ---------
 -- neet
@@ -470,3 +477,102 @@ if CLIENT then
 		net.SendToServer()
 	end )
 end
+
+
+
+
+
+
+
+--[[
+if SERVER then
+util.AddNetworkString( "MsgSendToAllClients" )
+net.Start( "MsgSendToAllClients" )
+	net.WriteInt( 9999, 16 )
+	net.WriteString( "Hello! This is message from a server to all clients." )
+net.Broadcast()
+end
+
+if CLIENT then
+net.Receive( "MsgSendToAllClients", function( len )
+	print( net.ReadInt( 16 ) )
+	print( net.ReadString() )
+end )
+end
+]]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--[[
+if SERVER then
+neet.Start( "neet:MsgSendToAllClients", {9999, "Hello! This is message from a server to all clients."}, neet.Broadcast )
+end
+
+if CLIENT then
+neet.Receive( "neet:MsgSendToAllClients", function( buf )
+	print( buf[1] )
+	print( buf[2] )
+end )
+end
+]]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PrintTable(neet)

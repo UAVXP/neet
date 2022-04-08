@@ -39,8 +39,18 @@ if SERVER then NEET_SendPAS = 4 end
 if SERVER then NEET_SendPVS = 5 end
 if CLIENT then NEET_SendToServer = 6 end
 
-NEET_BITS_Integer = 3 -- Not used
+--[[ Old values
 NEET_BITS_Float = 0
+NEET_BITS_Double = 1
+NEET_BITS_UInt = 2
+NEET_BITS_Integer = 3
+]]
+NEET_BITS_Int = -1
+NEET_BITS_UInt = -2
+NEET_BITS_Float = -3
+NEET_BITS_Double = -4
+
+
 
 neet.Config = {}
 
@@ -99,7 +109,7 @@ end )
 end
 
 local function neetMakeDelay( messageName, delay )
-	print( "neetMakeDelay" )
+	print( "neetMakeDelay:", delay )
 	timer.Simple( delay, function()
 		neet.Start( messageName )
 	end )
@@ -131,7 +141,7 @@ local function neetEstimateSize( params )
 end
 
 -- FIXME: This is really bad
-local function neetChooseNumberBits( number )
+local function neetChooseIntBits( number )
 	--[[
 		000
 		001
@@ -236,6 +246,113 @@ local function neetChooseNumberBits( number )
 	return 32
 end
 
+-- FIXME: This is really bad
+local function neetChooseUIntBits( number )
+	-- number should be always >= 0
+	if number < 0 then error("neet: UInt number is unexpectedly below zero!") end
+
+--	We could return "neetChooseIntBits( number ) - 1", but it could be 0
+
+	if number <= 1 then
+		return 1
+	end
+	if number <= 3 then
+		return 2
+	end
+	if number <= 7 then
+		return 3
+	end
+	if number <= 15 then
+		return 4
+	end
+	if number <= 31 then
+		return 5
+	end
+	if number <= 63 then
+		return 6
+	end
+	if number <= 127 then
+		return 7
+	end
+	if number <= 255 then
+		return 8
+	end
+	if number <= 511 then
+		return 9
+	end
+	if number <= 1023 then
+		return 10
+	end
+	if number <= 2047 then
+		return 11
+	end
+	if number <= 4095 then
+		return 12
+	end
+	if number <= 8191 then
+		return 13
+	end
+	if number <= 16383 then
+		return 14
+	end
+	if number <= 32767 then
+		return 15
+	end
+	if number <= 65535 then
+		return 16
+	end
+	if number <= 131071 then
+		return 17
+	end
+	if number <= 262143 then
+		return 18
+	end
+	if number <= 524287 then
+		return 19
+	end
+	if number <= 1048575 then
+		return 20
+	end
+	if number <= 2097151 then
+		return 21
+	end
+	if number <= 4194303 then
+		return 22
+	end
+	if number <= 8388607 then
+		return 23
+	end
+	if number <= 16777215 then
+		return 24
+	end
+	if number <= 33554431 then
+		return 25
+	end
+	if number <= 67108863 then
+		return 26
+	end
+	if number <= 134217727 then
+		return 27
+	end
+	if number <= 268435455 then
+		return 28
+	end
+	if number <= 536870911 then
+		return 29
+	end
+	if number <= 1073741823 then
+		return 30
+	end
+	if number <= 2147483647 then
+		return 31
+	end
+	if number <= 4294967295 then
+		return 32
+	end
+
+	return 32
+end
+
 local function neetStartInternal( messageName, params, neetparams )
 
 	local bufsize = neetEstimateSize( params )
@@ -245,24 +362,97 @@ local function neetStartInternal( messageName, params, neetparams )
 	for k,v in pairs( params ) do
 		local typeid = TypeID( v )
 		if typeid == TYPE_NUMBER then
-			-- FIXME: Autodetermine what is better to use: WriteInt( autobits ), WriteDouble or WriteFloat
+			-- TODO: Detect if we should use UInt or not. Should decrease size of a netmessage by 1 bit
+--[[
 		--	net.WriteDouble( v )
-			local maximumBitsRequired = neetChooseNumberBits( v )
-			print("Choosing this number of bits (", maximumBitsRequired, ") to send", v)
-
-			if v == math.floor( v ) then -- This number is really integer
-				net.WriteInt( maximumBitsRequired, 7 )
-				net.WriteInt( v, maximumBitsRequired )
+			local maximumBitsRequired = NEET_BITS_Integer
+		--	local isNumberIsInt = v < 0 or not ( v > 2147483647 and v < math.huge )
+			local isNumberIsInt = v < 0 or not ( v > 2147483645 and v < math.huge )
+			if isNumberIsInt then -- This is usual int
+				maximumBitsRequired = neetChooseIntBits( v )
 			else
-				-- TODO: Do support for double
-				net.WriteInt( NEET_BITS_Float, 7 ) -- TODO: Define those explicitly
-				net.WriteFloat( v )
+				maximumBitsRequired = neetChooseUIntBits( v )
 			end
+			print("Sending", v, "as", isNumberIsInt and "int" or "uint", ", and number of bits to send is", maximumBitsRequired, v)
+
+			net.WriteBool( isNumberIsInt ) -- Is number is signed (either integer, float or double)
+
+			-- TODO: Do support for double
+			-- Double should be the exception case for... extra large signed numbers???
+			if v == math.floor( v ) then -- This number is really integer
+				net.WriteUInt( maximumBitsRequired, 6 )
+				if isNumberIsInt then
+					net.WriteInt( v, maximumBitsRequired )
+				else
+					net.WriteUInt( v, maximumBitsRequired )
+				end
+			else -- Float
+				-- -54.8 is more precise on double, than on float,
+				-- but double is more demanding to a network
+				net.WriteUInt( NEET_BITS_Float, 6 ) -- TODO: Define these bits explicitly
+				net.WriteFloat( v )
+			--	net.WriteFloat( -54.8 )-- 2147483647 )-- 4294967300 )-- 4294967296 )
+
+			--	net.WriteUInt( NEET_BITS_Double, 6 )
+			--	net.WriteDouble( -54.8 )
+			end
+]]
+			-- int		4-byte (32-bit) signed (-2147483648 - 2147483647)
+			-- uint		4-byte (32-bit) unsigned (0 - 4294967295)
+			-- float	4-byte (32-bit) float signed (-2147483648 - 2147483647) -- FIXME: gets more unprecised near the borders
+			-- double	8-byte? (64-bit?) float signed (~~ -/+(1.79 * math.pow(10,308)))
+--[[
+			net.WriteBool( false )
+		--	net.WriteUInt( NEET_BITS_Float, 6 )
+		--	net.WriteFloat( -2147483649 )
+			net.WriteUInt( NEET_BITS_Double, 6 )
+		--	net.WriteDouble( (math.pow(2, 1024) / 2) - 10 )
+		
+			local hugenum = math.pow(2, 1023)
+			print(hugenum)
+			for i=1022, 971, -1 do
+				hugenum = hugenum + math.pow(2, i)
+			end
+			hugenum = hugenum + 1
+		
+			local hugenum = 1.79 * math.pow(10,308)
+			print(hugenum < math.huge)
+			net.WriteDouble( -hugenum )
+]]
+			local isFloatingPoint = ( v != math.floor( v ) )
+			local isSigned = v < 0
+		--	print("floating point? ", isFloatingPoint, "; signed? ", isSigned)
+
+			if math.abs( v ) <= 2147483648 then -- int/uint/float routine
+				if not isFloatingPoint then -- int
+					if isSigned then -- signed int
+					--	print("Writing signed int", v)
+						net.WriteBool( true ) -- Is signed int
+						local bits = neetChooseIntBits( v )
+						net.WriteInt( bits, 7 ) -- NEET_BITS_Int
+						net.WriteInt( v, bits )
+					else -- unsigned int
+					--	print("Writing unsigned int", v)
+						net.WriteBool( false )
+						local bits = neetChooseUIntBits( v )
+						net.WriteInt( bits, 7 ) -- NEET_BITS_UInt
+						net.WriteUInt( v, bits )
+					end
+				else -- float
+				--	print("Writing float", v)
+					net.WriteBool( false )
+					net.WriteInt( NEET_BITS_Float, 7 )
+					net.WriteFloat( v )
+				end
+			else -- double routine
+			--	print("Writing double", v)
+				net.WriteBool( false )
+				net.WriteInt( NEET_BITS_Double, 7 )
+				net.WriteDouble( v )
+			end
+			
+
 		elseif typeid == TYPE_STRING then
-
-			-- TODO: Make sure the compressed string is smaller than the string itself
-			-- In the case when compressed>uncompressed - just send it via usual WriteString
-
 		--	print("prewritelen", #v)
 			local towrite = util.Compress( v )
 			if towrite == nil then error("neet: Cannot compress the string", v) continue end
@@ -275,6 +465,7 @@ local function neetStartInternal( messageName, params, neetparams )
 		--	print("writelen:", writelen)
 		--	print("Compressed: ", towrite)
 		--	net.WriteString( towrite )
+			-- In the case when compressed>uncompressed - just send it via usual WriteString
 			if isStringSmallerThanCompressedString then
 				net.WriteString( v )
 			else
@@ -375,11 +566,33 @@ local function neetReceiveInternal( messageName )
 		local typeid = TypeID( v )
 		if typeid == TYPE_NUMBER then
 		--	table.insert( buf, net.ReadDouble() )
-			local maximumBitsRequired = net.ReadInt( 7 )
+--[[
+			local isNumberIsInt = net.ReadBool()
+			local maximumBitsRequired = net.ReadUInt( 6 )
 			if maximumBitsRequired >= NEET_BITS_Integer then
-				table.insert( buf, net.ReadInt( maximumBitsRequired ) )
+				if isNumberIsInt then
+					table.insert( buf, net.ReadInt( maximumBitsRequired ) )
+				else
+					table.insert( buf, net.ReadUInt( maximumBitsRequired ) )
+				end
 			elseif maximumBitsRequired == NEET_BITS_Float then
 				table.insert( buf, net.ReadFloat() )
+			elseif maximumBitsRequired == NEET_BITS_Double then
+				table.insert( buf, net.ReadDouble() )
+			end
+]]
+			local isSignedInt = net.ReadBool()
+			local bits = net.ReadInt( 7 )
+			if bits == NEET_BITS_Float then
+				table.insert( buf, net.ReadFloat() )
+			elseif bits == NEET_BITS_Double then
+				table.insert( buf, net.ReadDouble() )
+			else -- signed/unsigned int
+				if isSignedInt then -- signed int
+					table.insert( buf, net.ReadInt( bits ) )
+				else -- unsigned int
+					table.insert( buf, net.ReadUInt( bits ) )
+				end
 			end
 		elseif typeid == TYPE_STRING then
 		--	local predecomp = net.ReadString()
@@ -425,7 +638,7 @@ end
 -- neet
 if SERVER then
 concommand.Add( "send_msg", function( ply, cmd, args, str )
-	local tosend = {"I'm a man.", 43, 69.5}
+	local tosend = {"I'm a man.", 43, 69.5, (1.79 * math.pow(10,308)), -(1.79 * math.pow(10,308))}
 --	local nparams = { msg = {msgtype = NEET_Broadcast}, unreliable = false } -- TODO: Make common params into a separate neet-vars
 	local nparams = neet.ConstructParams( NEET_Broadcast )
 --	nparams = neet.ConstructParams( NEET_Send, player.GetAll()[1] )
@@ -459,6 +672,9 @@ concommand.Add( "send_msg2", function( ply, cmd, args, str )
 	net.Start( "MyNetworkString2" )
 		net.WriteString("I'm a man.")
 		net.WriteDouble(43)
+		net.WriteFloat(69.5)
+		net.WriteDouble(1.79 * math.pow(10,308))
+		net.WriteDouble(-(1.79 * math.pow(10,308)))
 	net.Broadcast()
 end )
 
@@ -575,4 +791,4 @@ end
 
 
 
-PrintTable(neet)
+--PrintTable(neet)

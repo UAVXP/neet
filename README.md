@@ -42,6 +42,20 @@ local nparams = neet.ConstructParams( NEET_SendToServer )
 neet.Start( "MyNetworkString", tosend, nparams )
 ```
 
+### Receiving on server
+```lua
+neet.Receive( "MyNetworkString", function( buf, len, ply )
+	PrintTable( buf )
+end )
+```
+
+### Receiving on client
+```lua
+neet.Receive( "MyNetworkString", function( buf, len )
+	PrintTable( buf )
+end )
+```
+
 ## TODO
 I'm going to add SendOmit, SendPAS and SendPVS sometime later.
 Support for message chunking is also would be cool (65533 bytes, remember, right? You nasty big message fanboy)

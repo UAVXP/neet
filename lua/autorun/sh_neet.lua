@@ -72,7 +72,14 @@ function neet.ConstructParams( msgtype, extra, unreliable )
 	return params
 end
 
-neet.Broadcast = neet.ConstructParams( NEET_Broadcast )
+-- Helpers
+-- TODO: Maybe, we need to include neet.Start here for even more simplicity?
+function neet.Broadcast() return neet.ConstructParams( NEET_Broadcast ) end
+function neet.SendToServer() return neet.ConstructParams( NEET_SendToServer ) end
+function neet.Send( extra ) return neet.ConstructParams( NEET_Send, extra ) end
+function neet.SendOmit( extra ) return neet.ConstructParams( NEET_SendOmit, extra ) end
+function neet.SendPAS( extra ) return neet.ConstructParams( NEET_SendPAS, extra ) end
+function neet.SendPVS( extra ) return neet.ConstructParams( NEET_SendPVS, extra ) end
 
 --[[
 hook.Remove( "NetworkIDValidated", "neet:NetworkIDValidated" )
@@ -678,9 +685,9 @@ concommand.Add( "send_msg", function( ply, cmd, args, str )
 						{["key"] = "value", [50] = Color(255, 255, 255, 255)},
 						game.GetWorld()}
 --	local nparams = { msg = {msgtype = NEET_Broadcast}, unreliable = false } -- TODO: Make common params into a separate neet-vars
-	local nparams = neet.ConstructParams( NEET_Broadcast )
+--	local nparams = neet.ConstructParams( NEET_Broadcast )
 --	nparams = neet.ConstructParams( NEET_Send, player.GetAll()[1] )
-	neet.Start( "MyNetworkString", tosend, nparams )
+	neet.Start( "MyNetworkString", tosend, neet.Broadcast() )
 end )
 
 neet.Receive("MyNewNetworkString", function( buf, len, ply )
@@ -696,7 +703,7 @@ neet.Receive( "MyNetworkString", function( buf, len )
 
 	local tosend = {6845, "Cool! Nice to meet you!"}
 	local nparams = neet.ConstructParams( NEET_SendToServer )
-	neet.Start( "MyNewNetworkString", tosend, nparams )
+	neet.Start( "MyNewNetworkString", tosend, neet.SendToServer() )
 end )
 end
 

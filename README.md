@@ -24,22 +24,19 @@ Usage of this library is very simple and clean: only three lines is enough.
 ### Sending from server to all clients (broadcast)
 ```lua
 local tosend = {} -- Table of your contents
-local nparams = neet.ConstructParams( NEET_Broadcast )
-neet.Start( "MyNetworkString", tosend, nparams )
+neet.Start( "MyNetworkString", tosend, neet.Broadcast() )
 ```
 
 ### Sending from server to specific client
 ```lua
 local tosend = {} -- Table of your contents
-local nparams = neet.ConstructParams( NEET_Send, player.GetAll()[1] )
-neet.Start( "MyNetworkString", tosend, nparams )
+neet.Start( "MyNetworkString", tosend, neet.Send( player.GetAll()[1] ) )
 ```
 
 ### Sending from client to server
 ```lua
 local tosend = {} -- Table of your contents
-local nparams = neet.ConstructParams( NEET_SendToServer )
-neet.Start( "MyNetworkString", tosend, nparams )
+neet.Start( "MyNetworkString", tosend, neet.SendToServer() )
 ```
 
 ### Receiving on server
@@ -57,5 +54,4 @@ end )
 ```
 
 ## TODO
-I'm going to add SendOmit, SendPAS and SendPVS sometime later.
 Support for message chunking is also would be cool (65533 bytes, remember, right? You nasty big message fanboy)

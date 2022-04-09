@@ -10,9 +10,14 @@ REMEMBER: This library is under heavy W.I.P. It contains many comments and shitc
 ## Advantages
 It can automatically create Network Strings, so you will not bother yourself with that unneeded stuff.
 
+The message will delay a bit because server should process `util.AddNetworkString` (as I've been told at Gmod Wiki). You can control this delay via convar (see Configuration section below)
+
 Also it will automatically determine the best way to send numbers (int/uint/float/double).
 
 Other than that, it will automatically compress/decompress strings, if compressed string will be shorter that uncompressed.
+
+## Configuration
+`neet_senddelay` - Delay of sending a message if network string doesn't exist (1-∞, default: 3)
 
 ## Usage
 Usage of this library is very simple and clean: only three lines is enough.
@@ -38,4 +43,5 @@ neet.Start( "MyNetworkString", tosend, nparams )
 ```
 
 ## TODO
-I'm going to add SendOmit, SendPAS and SendPVS sometime later
+I'm going to add SendOmit, SendPAS and SendPVS sometime later.
+Support for message chunking is also would be cool (65533 bytes, remember, right? You nasty big message fanboy)

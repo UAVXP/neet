@@ -17,7 +17,7 @@ Also it will automatically determine the best way to send numbers (int/uint/floa
 Other than that, it will automatically compress/decompress strings, if compressed string will be shorter that uncompressed.
 
 ## Configuration
-`neet_senddelay` - Delay of sending a message if network string doesn't exist (1-∞, default: 3)
+`neet_senddelay` (seconds) - Delay of sending a message if network string doesn't exist (1-∞, default: 3)
 
 ## Usage
 Usage of this library is very simple and clean: only three lines is enough.

@@ -472,6 +472,20 @@ local function neetStartInternal( messageName, params, neetparams )
 				net.WriteUInt( writelen, neet.Config.StringCompressedLengthBits )
 				net.WriteData( towrite )
 			end
+		elseif typeid == TYPE_COLOR then -- TODO: Determine whether or not we should write alpha?
+			net.WriteColor( v, true )
+		elseif typeid == TYPE_VECTOR then -- TODO: Determine sending vector or normal?
+			net.WriteVector( v )
+		elseif typeid == TYPE_BOOL then
+			net.WriteBool( v )
+		elseif typeid == TYPE_TABLE then
+			net.WriteTable( v )
+		elseif typeid == TYPE_ANGLE then
+			net.WriteAngle( v )
+		elseif typeid == TYPE_ENTITY then
+			net.WriteEntity( v )
+		elseif typeid == TYPE_MATRIX then
+			net.WriteMatrix( v )
 		end
 	end
 
@@ -610,6 +624,20 @@ local function neetReceiveInternal( messageName )
 				if readstr == "" then error("neet: Cannot decompress the string") end
 			end
 			table.insert( buf, readstr )
+		elseif typeid == TYPE_COLOR then
+			table.insert( buf, net.ReadColor( true ) )
+		elseif typeid == TYPE_VECTOR then
+			table.insert( buf, net.ReadVector() )
+		elseif typeid == TYPE_BOOL then
+			table.insert( buf, net.ReadBool() )
+		elseif typeid == TYPE_TABLE then
+			table.insert( buf, net.ReadTable() )
+		elseif typeid == TYPE_ANGLE then
+			table.insert( buf, net.ReadAngle() )
+		elseif typeid == TYPE_ENTITY then
+			table.insert( buf, net.ReadEntity() )
+		elseif typeid == TYPE_MATRIX then
+			table.insert( buf, net.ReadMatrix() )
 		end
 	end
 
@@ -638,7 +666,17 @@ end
 -- neet
 if SERVER then
 concommand.Add( "send_msg", function( ply, cmd, args, str )
-	local tosend = {"I'm a man.", 43, 69.5, (1.79 * math.pow(10,308)), -(1.79 * math.pow(10,308))}
+	local tosend = {	"I'm a man.",
+						43,
+						69.5,
+						(1.79 * math.pow(10,308)),
+						-(1.79 * math.pow(10,308)),
+						Vector(356, 0, 120),
+						Color(255, 0, 255, 127),
+						math.random( 1, 400 ) > 200 and true or false,
+						{"Test val 1", "Test val 2"},
+						{["key"] = "value", [50] = Color(255, 255, 255, 255)},
+						game.GetWorld()}
 --	local nparams = { msg = {msgtype = NEET_Broadcast}, unreliable = false } -- TODO: Make common params into a separate neet-vars
 	local nparams = neet.ConstructParams( NEET_Broadcast )
 --	nparams = neet.ConstructParams( NEET_Send, player.GetAll()[1] )

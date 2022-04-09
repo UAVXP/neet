@@ -5,7 +5,7 @@ It allows easy usage of the network library used in Garry's Mod (net).
 
 This library could compress your messages automatically, so you will never need to think again, "What `net.somethingsomething` I should use now? And in what order..."
 
-REMEMBER: This library is under heavy W.I.P.
+REMEMBER: This library is under heavy W.I.P. It contains many comments and shitcode, and also I probably will change the way you will use it, so be careful with pulling changes ;)
 
 ## Advantages
 It can automatically create Network Strings, so you will not bother yourself with that unneeded stuff.

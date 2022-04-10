@@ -89,8 +89,7 @@ end )
 ]]
 
 --[[
-	[1] = {
-		NetName = "MyNetworkString"
+	["MyNetworkString"] = {
 	}
 ]]
 neet.msgs = {}
@@ -115,32 +114,17 @@ net.Receive( "neet:SyncMsgs", function( len )
 end )
 end
 
--- TODO: Need to redo neet.msgs: key should be message name.
--- Then we wouldn't need to search through the table
 local function neetFindByMessageName( messageName )
-	local found = false
-	local kFound = 0
---	PrintTable(neet.msgs)
-	for k,v in pairs( neet.msgs ) do
-	--	print( v.NetName, messageName )
-		if v.NetName == messageName then
-		--	print("found!")
-			found = true
-			kFound = k
-			break
-		end
-	end
-
-	print(found, kFound)
-	return found, kFound
+	return neet.msgs[messageName] != nil
 end
 
 local function neetMakeDelay( messageName, delay )
 	print( "neetMakeDelay:", delay )
 	timer.Simple( delay, function()
 		-- First appearance!
-		local bIsNetNameFoundUNUSED, kFound = neetFindByMessageName( messageName )
-		neet.Start( messageName, neet.msgs[kFound].params, neet.msgs[kFound].neetparams )
+		local bIsFound = neetFindByMessageName( messageName )
+		if not bIsFound then error("neet: Net message " .. messageName .. " wasn't found after a delay") end -- Shouldn't happen
+		neet.Start( messageName, neet.msgs[messageName].params, neet.msgs[messageName].neetparams )
 	end )
 end
 
@@ -544,40 +528,38 @@ end
 function neet.Start( messageName, params, neetparams )
 	-- if not found netstring in neet.msgs - create one
 	-- Then make the message to run in few seconds later
-	local bIsNetNameFound, kFound = neetFindByMessageName( messageName )
+	local bIsFound = neetFindByMessageName( messageName )
 
 	local netmsgNotAdded = neetAddNetworkString( messageName )
 
-	if not bIsNetNameFound then
+	if not bIsFound then
 		-- create net netmsg
-		
-
 		local tblNewNetMsg = {
-			NetName = messageName,
+		--	NetName = messageName,
 			t_delay = netmsgNotAdded and neet.Config.SendDelay:GetInt() or 0,
 			isfine = netmsgIsAlreadyExist, -- Means that the netname is going to be created, but the message itself not being sent for now
 			params = params,
 			neetparams = neetparams
 		}
 
-		local newk = table.insert( neet.msgs, tblNewNetMsg )
+		neet.msgs[messageName] = tblNewNetMsg
 		neetSyncMsgs()
 
 		neetMakeDelay( messageName, tblNewNetMsg.t_delay )
 
 		-- return false? even if the message is being created
-		return false
+		return (netmsgNotAdded == false) -- FIXME: Wow, what a naming...
 	end
 
 	-- FIXME: Unneeded caching?
---	neet.msgs[kFound].params = params or neet.msgs[kFound].params
---	neet.msgs[kFound].neetparams = neetparams or neet.msgs[kFound].neetparams
+--	neet.msgs[messageName].params = params or neet.msgs[messageName].params
+--	neet.msgs[messageName].neetparams = neetparams or neet.msgs[messageName].neetparams
 
-	local intParams = params -- neet.msgs[kFound].params
-	local intNeetparams = neetparams -- neet.msgs[kFound].neetparams
+	local intParams = params -- neet.msgs[messageName].params
+	local intNeetparams = neetparams -- neet.msgs[messageName].neetparams
 	local bIsStarted = neetStartInternal( messageName, intParams, intNeetparams )
 
-	neet.msgs[kFound].isfine = bIsStarted
+	neet.msgs[messageName].isfine = bIsStarted
 	return bIsStarted
 end
 
@@ -585,9 +567,9 @@ local function neetReceiveInternal()
 end
 
 local function neetReceiveInternal( messageName )
-	local bIsNetNameFound, kFound = neetFindByMessageName( messageName )
-	if not bIsNetNameFound then error("neet: Something bad happened at receiving msg") end
-	local params = neet.msgs[kFound].params
+	local bIsFound = neetFindByMessageName( messageName )
+	if not bIsFound then error("neet: Something bad happened at receiving " .. messageName .. " msg") end
+	local params = neet.msgs[messageName].params
 
 	local buf = {}
 

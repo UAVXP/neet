@@ -115,13 +115,8 @@ net.Receive( "neet:SyncMsgs", function( len )
 end )
 end
 
-local function neetMakeDelay( messageName, delay )
-	print( "neetMakeDelay:", delay )
-	timer.Simple( delay, function()
-		neet.Start( messageName )
-	end )
-end
-
+-- TODO: Need to redo neet.msgs: key should be message name.
+-- Then we wouldn't need to search through the table
 local function neetFindByMessageName( messageName )
 	local found = false
 	local kFound = 0
@@ -138,6 +133,15 @@ local function neetFindByMessageName( messageName )
 
 	print(found, kFound)
 	return found, kFound
+end
+
+local function neetMakeDelay( messageName, delay )
+	print( "neetMakeDelay:", delay )
+	timer.Simple( delay, function()
+		-- First appearance!
+		local bIsNetNameFoundUNUSED, kFound = neetFindByMessageName( messageName )
+		neet.Start( messageName, neet.msgs[kFound].params, neet.msgs[kFound].neetparams )
+	end )
 end
 
 -- TODO
@@ -362,7 +366,7 @@ end
 
 local function neetStartInternal( messageName, params, neetparams )
 
-	local bufsize = neetEstimateSize( params )
+--	local bufsize = neetEstimateSize( params ) -- TODO
 
 	local isStarted = net.Start( messageName, neetparams.unreliable )
 --	PrintTable(params)
@@ -565,8 +569,12 @@ function neet.Start( messageName, params, neetparams )
 		return false
 	end
 
-	local intParams = neet.msgs[kFound].params --or params
-	local intNeetparams = neet.msgs[kFound].neetparams --or neetparams
+	-- FIXME: Unneeded caching?
+--	neet.msgs[kFound].params = params or neet.msgs[kFound].params
+--	neet.msgs[kFound].neetparams = neetparams or neet.msgs[kFound].neetparams
+
+	local intParams = params -- neet.msgs[kFound].params
+	local intNeetparams = neetparams -- neet.msgs[kFound].neetparams
 	local bIsStarted = neetStartInternal( messageName, intParams, intNeetparams )
 
 	neet.msgs[kFound].isfine = bIsStarted
